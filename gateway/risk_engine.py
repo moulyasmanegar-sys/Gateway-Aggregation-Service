@@ -1,0 +1,25 @@
+import requests
+
+RISK_ENGINE_URL = "https://vixen-deepen-gown.ngrok-free.dev/api/risk-engine/analyze/"
+
+
+def send_to_risk_engine(payload):
+    try:
+        response = requests.post(
+            RISK_ENGINE_URL,
+            json=payload,
+            headers={
+                "Content-Type": "application/json",
+                "ngrok-skip-browser-warning": "1"
+            },
+            timeout=30,
+        )
+
+        print("Risk Engine Status:", response.status_code)
+        print("Risk Engine Response:", response.text)
+
+        return response
+
+    except Exception as e:
+        print("Error sending to Risk Engine:", e)
+        return None
