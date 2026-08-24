@@ -1,7 +1,14 @@
 import imaplib
 import email
-EMAIL = "goweris19@gmail.com"
+import os
+
+EMAIL = ""
 APP_PASSWORD = ""
+
+if not EMAIL or not APP_PASSWORD:
+	raise RuntimeError(
+		"Set EMAIL_ADDRESS and GMAIL_APP_PASSWORD before running read_email.py."
+	)
 
 mail = imaplib.IMAP4_SSL("imap.gmail.com")
 mail.login(EMAIL, APP_PASSWORD)
