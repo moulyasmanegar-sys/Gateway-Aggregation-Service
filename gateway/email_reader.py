@@ -9,8 +9,8 @@ from email.utils import parseaddr
 # ==============================
 # Gmail Credentials
 # ==============================
-EMAIL = "goweris19@gmail.com"
-APP_PASSWORD = "moda lbnj ocjf jxmg"      # Enter your Gmail App Password
+EMAIL = ""
+APP_PASSWORD = " "     # Enter your Gmail App Password
 
 if not EMAIL or not APP_PASSWORD:
     raise RuntimeError(

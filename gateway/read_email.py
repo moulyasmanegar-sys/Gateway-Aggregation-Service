@@ -2,8 +2,8 @@ import imaplib
 import email
 import os
 
-EMAIL = "goweris19@gmail.com"
-APP_PASSWORD = "moda lbnj ocjf jxmg"
+EMAIL = ""
+APP_PASSWORD = ""
 
 if not EMAIL or not APP_PASSWORD:
 	raise RuntimeError(
