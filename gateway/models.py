@@ -7,7 +7,8 @@ class Email(models.Model):
     body = models.TextField()
     urls = models.JSONField(default=list)
     timestamp = models.DateTimeField(auto_now_add=True)
-    attachment = models.CharField(max_length=255, blank=True)
+
+    attachments = models.JSONField(default=list)
 
     def __str__(self):
         return self.subject
