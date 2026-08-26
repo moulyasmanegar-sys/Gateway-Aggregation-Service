@@ -67,11 +67,9 @@ class RiskInputSerializer(serializers.Serializer):
         required=False,
         default=list,
     )
-
     attachments = AttachmentSerializer(
         many=True,
         required=False,
         default=list,
     )
-
     data = EmailDataSerializer()

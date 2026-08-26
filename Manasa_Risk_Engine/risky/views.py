@@ -1,5 +1,5 @@
-
 import re
+
 import requests
 
 from rest_framework import status
@@ -106,13 +106,11 @@ class RiskAnalysisView(APIView):
         print(request.data)
         print("======================================\n")
 
-
         # ====================================================
         # STEP 1: GET REQUEST DATA
         # ====================================================
 
         incoming_data = request.data
-
 
         # ====================================================
         # STEP 2: HANDLE NESTED EMAIL DATA
@@ -122,7 +120,6 @@ class RiskAnalysisView(APIView):
             "data",
             {}
         )
-
 
         # ====================================================
         # FALLBACK TO TOP-LEVEL DATA
@@ -170,7 +167,6 @@ class RiskAnalysisView(APIView):
                 ),
             }
 
-
         # ====================================================
         # STEP 3: NORMALIZE ATTACHMENTS
         # ====================================================
@@ -192,15 +188,11 @@ class RiskAnalysisView(APIView):
         ):
 
             if attachment not in attachments:
-                attachments.append(
-                    attachment
-                )
-
+                attachments.append(attachment)
 
         # Add normalized attachments to email data
 
         email_data["attachments"] = attachments
-
 
         # ====================================================
         # STEP 4: BUILD NORMALIZED DATA
@@ -227,10 +219,8 @@ class RiskAnalysisView(APIView):
             "data": email_data,
         }
 
-
         print("NORMALIZED DATA:")
         print(normalized_data)
-
 
         # ====================================================
         # STEP 5: VALIDATE REQUEST
@@ -244,10 +234,7 @@ class RiskAnalysisView(APIView):
             raise_exception=True
         )
 
-        validated_data = (
-            serializer.validated_data
-        )
-
+        validated_data = serializer.validated_data
 
         # ====================================================
         # STEP 6: GET EMAIL ID
@@ -256,7 +243,6 @@ class RiskAnalysisView(APIView):
         email_id = validated_data.get(
             "email_id"
         )
-
 
         # ====================================================
         # STEP 7: GET EMAIL CONTENT
@@ -267,14 +253,12 @@ class RiskAnalysisView(APIView):
             {}
         )
 
-
         sender = clean_email(
             email_data.get(
                 "sender",
                 ""
             )
         )
-
 
         receiver = clean_email(
             email_data.get(
@@ -283,24 +267,20 @@ class RiskAnalysisView(APIView):
             )
         )
 
-
         subject = email_data.get(
             "subject",
             ""
         )
-
 
         body = email_data.get(
             "body",
             ""
         )
 
-
         validated_attachments = email_data.get(
             "attachments",
             []
         )
-
 
         print("EMAIL DETAILS:")
         print("Sender:", sender)
@@ -308,7 +288,6 @@ class RiskAnalysisView(APIView):
         print("Subject:", subject)
         print("Body:", body)
         print("Attachments:", validated_attachments)
-
 
         # ====================================================
         # STEP 8: CLEAN TOP-LEVEL URLS
@@ -330,7 +309,6 @@ class RiskAnalysisView(APIView):
                     cleaned
                 )
 
-
         # ====================================================
         # STEP 9: CLEAN NESTED URLS
         # ====================================================
@@ -351,7 +329,6 @@ class RiskAnalysisView(APIView):
                     cleaned
                 )
 
-
         # ====================================================
         # STEP 10: EXTRACT IOCs
         # ====================================================
@@ -360,7 +337,6 @@ class RiskAnalysisView(APIView):
             subject=subject,
             body=body,
         )
-
 
         extracted_urls = ioc_data.get(
             "urls",
@@ -382,7 +358,6 @@ class RiskAnalysisView(APIView):
             0
         )
 
-
         # ====================================================
         # STEP 11: CLEAN EXTRACTED URLS
         # ====================================================
@@ -398,13 +373,11 @@ class RiskAnalysisView(APIView):
                     cleaned
                 )
 
-
         # ====================================================
         # STEP 12: COMBINE ALL URL SOURCES
         # ====================================================
 
         urls = []
-
 
         # URLs extracted from email body
 
@@ -413,14 +386,12 @@ class RiskAnalysisView(APIView):
             if url not in urls:
                 urls.append(url)
 
-
         # URLs from top-level JSON
 
         for url in cleaned_incoming_urls:
 
             if url not in urls:
                 urls.append(url)
-
 
         # URLs from data.urls
 
@@ -429,10 +400,8 @@ class RiskAnalysisView(APIView):
             if url not in urls:
                 urls.append(url)
 
-
         print("FINAL URLS FOR THREAT INTELLIGENCE:")
         print(urls)
-
 
         # ====================================================
         # STEP 13: VIRUSTOTAL ANALYSIS
@@ -445,7 +414,6 @@ class RiskAnalysisView(APIView):
         total_harmless = 0
         total_undetected = 0
 
-
         if urls:
 
             try:
@@ -454,7 +422,6 @@ class RiskAnalysisView(APIView):
                     VirusTotalService()
                 )
 
-
                 for url in urls:
 
                     print(
@@ -462,50 +429,35 @@ class RiskAnalysisView(APIView):
                         url
                     )
 
-
                     result = (
                         virus_total_service.analyze_url(
                             url
                         )
                     )
 
-
                     url_results.append(
                         result
                     )
 
-
-                    total_malicious += (
-                        result.get(
-                            "malicious",
-                            0
-                        )
+                    total_malicious += result.get(
+                        "malicious",
+                        0
                     )
 
-
-                    total_suspicious += (
-                        result.get(
-                            "suspicious",
-                            0
-                        )
+                    total_suspicious += result.get(
+                        "suspicious",
+                        0
                     )
 
-
-                    total_harmless += (
-                        result.get(
-                            "harmless",
-                            0
-                        )
+                    total_harmless += result.get(
+                        "harmless",
+                        0
                     )
 
-
-                    total_undetected += (
-                        result.get(
-                            "undetected",
-                            0
-                        )
+                    total_undetected += result.get(
+                        "undetected",
+                        0
                     )
-
 
             except Exception as error:
 
@@ -530,44 +482,31 @@ class RiskAnalysisView(APIView):
                         "urls": urls,
                     },
 
-                    status=(
-                        status.HTTP_502_BAD_GATEWAY
-                    ),
+                    status=status.HTTP_502_BAD_GATEWAY,
                 )
-
 
         # ====================================================
         # STEP 14: RISK CALCULATION
         # ====================================================
 
-        calculation = (
-            RiskCalculator.calculate(
+        calculation = RiskCalculator.calculate(
 
-                ai_risk="LOW",
+            ai_risk="LOW",
 
-                ioc_count=ioc_count,
+            ioc_count=ioc_count,
 
-                malicious_count=(
-                    total_malicious
-                ),
+            malicious_count=total_malicious,
 
-                suspicious_count=(
-                    total_suspicious
-                ),
+            suspicious_count=total_suspicious,
 
-                harmless_count=(
-                    total_harmless
-                ),
+            harmless_count=total_harmless,
 
-                total_urls=len(urls),
-            )
+            total_urls=len(urls),
         )
-
 
         risk_score = calculation[
             "risk_score"
         ]
-
 
         # ====================================================
         # STEP 15: RISK CLASSIFICATION
@@ -579,53 +518,70 @@ class RiskAnalysisView(APIView):
             )
         )
 
-
         # ====================================================
         # STEP 16: PREPARE RESULT FOR THAKSHI
+        # ====================================================
+        #
+        # IMPORTANT:
+        #
+        # Thakshi expects:
+        #
+        # "risk_analysis": {...}
+        #
+        # instead of:
+        #
+        # "risk_score": ...
+        # "classification": ...
+        #
         # ====================================================
 
         thakshi_payload = {
 
             "email_id": email_id,
 
-            "risk_score": risk_score,
+            "risk_analysis": {
 
-            "classification": classification,
+                "risk_score": risk_score,
+
+                "classification": classification,
+
+                "score_breakdown": (
+                    calculation.get(
+                        "score_breakdown",
+                        {}
+                    )
+                ),
+            },
 
             "threat_intelligence": {
 
                 "total_urls": len(urls),
 
-                "malicious_count": (
-                    total_malicious
-                ),
+                "malicious_count": total_malicious,
 
-                "suspicious_count": (
-                    total_suspicious
-                ),
+                "suspicious_count": total_suspicious,
 
-                "harmless_count": (
-                    total_harmless
-                ),
+                "harmless_count": total_harmless,
 
-                "undetected_count": (
-                    total_undetected
-                ),
+                "undetected_count": total_undetected,
 
                 "url_results": url_results,
             },
+
+            "attachments": validated_attachments,
         }
 
-
-        print("\n======================================")
-        print("SENDING RESULT TO THAKSHI")
-        print("======================================")
+        print("\n==========================")
+        print("THAKSHI PAYLOAD")
+        print("==========================")
         print(thakshi_payload)
-
+        print("==========================\n")
 
         # ====================================================
         # STEP 17: SEND RESULT TO THAKSHI
         # ====================================================
+
+        thakshi_response = None
 
         try:
 
@@ -636,10 +592,7 @@ class RiskAnalysisView(APIView):
                 json=thakshi_payload,
 
                 headers={
-
-                    "Content-Type": (
-                        "application/json"
-                    ),
+                    "Content-Type": "application/json",
 
                     "ngrok-skip-browser-warning": "1",
                 },
@@ -647,21 +600,37 @@ class RiskAnalysisView(APIView):
                 timeout=30,
             )
 
-
             print(
                 "THAKSHI STATUS:",
                 thakshi_response.status_code
             )
-
 
             print(
                 "THAKSHI RESPONSE:",
                 thakshi_response.text
             )
 
+            # =================================================
+            # HANDLE THAKSHI ERROR
+            # =================================================
 
-            thakshi_response.raise_for_status()
+            if not thakshi_response.ok:
 
+                print("\n======================================")
+                print("THAKSHI API RETURNED ERROR")
+                print("======================================")
+
+                print(
+                    "STATUS:",
+                    thakshi_response.status_code
+                )
+
+                print(
+                    "RESPONSE:",
+                    thakshi_response.text
+                )
+
+                print("======================================\n")
 
         except requests.RequestException as error:
 
@@ -674,6 +643,7 @@ class RiskAnalysisView(APIView):
                 str(error)
             )
 
+            print("======================================\n")
 
         # ====================================================
         # STEP 18: BUILD FINAL RESPONSE
@@ -689,7 +659,6 @@ class RiskAnalysisView(APIView):
 
             "email_id": email_id,
 
-
             "email_details": {
 
                 "sender": sender,
@@ -699,9 +668,7 @@ class RiskAnalysisView(APIView):
                 "subject": subject,
             },
 
-
             "attachments": validated_attachments,
-
 
             "ioc_analysis": {
 
@@ -716,7 +683,6 @@ class RiskAnalysisView(APIView):
                 ),
             },
 
-
             "risk_analysis": {
 
                 "risk_score": risk_score,
@@ -724,51 +690,44 @@ class RiskAnalysisView(APIView):
                 "classification": classification,
 
                 "score_breakdown": (
-                    calculation[
-                        "score_breakdown"
-                    ]
+                    calculation.get(
+                        "score_breakdown",
+                        {}
+                    )
                 ),
             },
-
 
             "threat_intelligence": {
 
                 "total_urls": len(urls),
 
-                "malicious_count": (
-                    total_malicious
-                ),
+                "malicious_count": total_malicious,
 
-                "suspicious_count": (
-                    total_suspicious
-                ),
+                "suspicious_count": total_suspicious,
 
-                "harmless_count": (
-                    total_harmless
-                ),
+                "harmless_count": total_harmless,
 
-                "undetected_count": (
-                    total_undetected
-                ),
+                "undetected_count": total_undetected,
 
                 "url_results": url_results,
             },
         }
 
-
         # ====================================================
         # STEP 19: PRINT FINAL RESPONSE
         # ====================================================
+
         print("\n======================================")
         print("RISK ENGINE RESPONSE")
         print("======================================")
         print(response_data)
         print("======================================\n")
+
         # ====================================================
         # STEP 20: RETURN RESPONSE
         # ====================================================
+
         return Response(
             response_data,
             status=status.HTTP_200_OK
         )
-
