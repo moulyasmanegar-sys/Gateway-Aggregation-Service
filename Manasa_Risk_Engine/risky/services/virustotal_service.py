@@ -1,27 +1,18 @@
 import time
 import requests
-
 from django.conf import settings
-
-
 class VirusTotalService:
-
     BASE_URL = "https://www.virustotal.com/api/v3"
-
     def __init__(self):
-
         self.api_key = settings.VIRUSTOTAL_API_KEY
-
         if not self.api_key:
             raise ValueError(
                 "VIRUSTOTAL_API_KEY is not configured."
             )
-
         self.headers = {
             "x-apikey": self.api_key,
             "Accept": "application/json",
         }
-
     def analyze_url(self, url):
 
         # ====================================================
@@ -196,11 +187,9 @@ class VirusTotalService:
             # =================================================
             # STEP 9: WAIT BEFORE CHECKING AGAIN
             # =================================================
-
             if attempt < max_attempts - 1:
 
                 time.sleep(2)
-
         # ====================================================
         # STEP 10: ANALYSIS TIMEOUT
         # ====================================================

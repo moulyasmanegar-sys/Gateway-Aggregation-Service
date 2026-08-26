@@ -1,3 +1,4 @@
+
 import re
 import requests
 
@@ -102,9 +103,7 @@ class RiskAnalysisView(APIView):
         print("\n======================================")
         print("INCOMING RISK ENGINE REQUEST")
         print("======================================")
-
         print(request.data)
-
         print("======================================\n")
 
 
@@ -125,12 +124,16 @@ class RiskAnalysisView(APIView):
         )
 
 
-        # If data is missing, allow fallback
-        # to top-level fields.
+        # ====================================================
+        # FALLBACK TO TOP-LEVEL DATA
+        # ====================================================
 
         if not email_data:
 
             email_data = {
+                "id": incoming_data.get(
+                    "email_id"
+                ),
 
                 "sender": incoming_data.get(
                     "sender",
@@ -161,15 +164,46 @@ class RiskAnalysisView(APIView):
                     "timestamp"
                 ),
 
-                "attachment": incoming_data.get(
-                    "attachment",
-                    ""
+                "attachments": incoming_data.get(
+                    "attachments",
+                    []
                 ),
             }
 
 
         # ====================================================
-        # STEP 3: BUILD NORMALIZED DATA
+        # STEP 3: NORMALIZE ATTACHMENTS
+        # ====================================================
+
+        top_level_attachments = incoming_data.get(
+            "attachments",
+            []
+        )
+
+        nested_attachments = email_data.get(
+            "attachments",
+            []
+        )
+
+        attachments = []
+
+        for attachment in (
+            top_level_attachments + nested_attachments
+        ):
+
+            if attachment not in attachments:
+                attachments.append(
+                    attachment
+                )
+
+
+        # Add normalized attachments to email data
+
+        email_data["attachments"] = attachments
+
+
+        # ====================================================
+        # STEP 4: BUILD NORMALIZED DATA
         # ====================================================
 
         normalized_data = {
@@ -188,6 +222,8 @@ class RiskAnalysisView(APIView):
                 []
             ),
 
+            "attachments": attachments,
+
             "data": email_data,
         }
 
@@ -197,7 +233,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 4: VALIDATE REQUEST
+        # STEP 5: VALIDATE REQUEST
         # ====================================================
 
         serializer = RiskInputSerializer(
@@ -214,7 +250,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 5: GET EMAIL ID
+        # STEP 6: GET EMAIL ID
         # ====================================================
 
         email_id = validated_data.get(
@@ -223,7 +259,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 6: GET EMAIL CONTENT
+        # STEP 7: GET EMAIL CONTENT
         # ====================================================
 
         email_data = validated_data.get(
@@ -260,15 +296,22 @@ class RiskAnalysisView(APIView):
         )
 
 
+        validated_attachments = email_data.get(
+            "attachments",
+            []
+        )
+
+
         print("EMAIL DETAILS:")
         print("Sender:", sender)
         print("Receiver:", receiver)
         print("Subject:", subject)
         print("Body:", body)
+        print("Attachments:", validated_attachments)
 
 
         # ====================================================
-        # STEP 7: CLEAN TOP-LEVEL URLS
+        # STEP 8: CLEAN TOP-LEVEL URLS
         # ====================================================
 
         incoming_urls = validated_data.get(
@@ -276,23 +319,20 @@ class RiskAnalysisView(APIView):
             []
         )
 
-
         cleaned_incoming_urls = []
-
 
         for url in incoming_urls:
 
             cleaned = clean_url(url)
 
             if cleaned:
-
                 cleaned_incoming_urls.append(
                     cleaned
                 )
 
 
         # ====================================================
-        # STEP 8: CLEAN NESTED URLS
+        # STEP 9: CLEAN NESTED URLS
         # ====================================================
 
         nested_urls = email_data.get(
@@ -300,23 +340,20 @@ class RiskAnalysisView(APIView):
             []
         )
 
-
         cleaned_nested_urls = []
-
 
         for url in nested_urls:
 
             cleaned = clean_url(url)
 
             if cleaned:
-
                 cleaned_nested_urls.append(
                     cleaned
                 )
 
 
         # ====================================================
-        # STEP 9: EXTRACT IOCs
+        # STEP 10: EXTRACT IOCs
         # ====================================================
 
         ioc_data = IOCExtractor.extract(
@@ -330,20 +367,15 @@ class RiskAnalysisView(APIView):
             []
         )
 
-
         domains = ioc_data.get(
             "domains",
             []
         )
 
-
-        suspicious_keywords = (
-            ioc_data.get(
-                "suspicious_keywords",
-                []
-            )
+        suspicious_keywords = ioc_data.get(
+            "suspicious_keywords",
+            []
         )
-
 
         ioc_count = ioc_data.get(
             "ioc_count",
@@ -352,36 +384,33 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 10: CLEAN EXTRACTED URLS
+        # STEP 11: CLEAN EXTRACTED URLS
         # ====================================================
 
         cleaned_extracted_urls = []
-
 
         for url in extracted_urls:
 
             cleaned = clean_url(url)
 
             if cleaned:
-
                 cleaned_extracted_urls.append(
                     cleaned
                 )
 
 
         # ====================================================
-        # STEP 11: COMBINE ALL URL SOURCES
+        # STEP 12: COMBINE ALL URL SOURCES
         # ====================================================
 
         urls = []
 
 
-        # URLs from email body
+        # URLs extracted from email body
 
         for url in cleaned_extracted_urls:
 
             if url not in urls:
-
                 urls.append(url)
 
 
@@ -390,7 +419,6 @@ class RiskAnalysisView(APIView):
         for url in cleaned_incoming_urls:
 
             if url not in urls:
-
                 urls.append(url)
 
 
@@ -399,7 +427,6 @@ class RiskAnalysisView(APIView):
         for url in cleaned_nested_urls:
 
             if url not in urls:
-
                 urls.append(url)
 
 
@@ -408,7 +435,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 12: VIRUSTOTAL ANALYSIS
+        # STEP 13: VIRUSTOTAL ANALYSIS
         # ====================================================
 
         url_results = []
@@ -487,14 +514,13 @@ class RiskAnalysisView(APIView):
                     str(error)
                 )
 
-
                 return Response(
-
                     {
                         "success": False,
 
                         "message": (
-                            "Threat intelligence analysis failed."
+                            "Threat intelligence "
+                            "analysis failed."
                         ),
 
                         "email_id": email_id,
@@ -511,7 +537,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 13: RISK CALCULATION
+        # STEP 14: RISK CALCULATION
         # ====================================================
 
         calculation = (
@@ -544,7 +570,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 14: RISK CLASSIFICATION
+        # STEP 15: RISK CLASSIFICATION
         # ====================================================
 
         classification = (
@@ -555,7 +581,7 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 15: PREPARE RESULT FOR THAKSHI
+        # STEP 16: PREPARE RESULT FOR THAKSHI
         # ====================================================
 
         thakshi_payload = {
@@ -594,12 +620,11 @@ class RiskAnalysisView(APIView):
         print("\n======================================")
         print("SENDING RESULT TO THAKSHI")
         print("======================================")
-
         print(thakshi_payload)
 
 
         # ====================================================
-        # STEP 16: SEND RESULT TO THAKSHI
+        # STEP 17: SEND RESULT TO THAKSHI
         # ====================================================
 
         try:
@@ -612,7 +637,9 @@ class RiskAnalysisView(APIView):
 
                 headers={
 
-                    "Content-Type": "application/json",
+                    "Content-Type": (
+                        "application/json"
+                    ),
 
                     "ngrok-skip-browser-warning": "1",
                 },
@@ -648,15 +675,8 @@ class RiskAnalysisView(APIView):
             )
 
 
-            # The risk engine result itself is valid,
-            # so return the result to the caller.
-            #
-            # We are NOT changing the risk classification
-            # because Thakshi's API failed.
-
-
         # ====================================================
-        # STEP 17: BUILD FINAL RISK ENGINE RESPONSE
+        # STEP 18: BUILD FINAL RESPONSE
         # ====================================================
 
         response_data = {
@@ -678,6 +698,9 @@ class RiskAnalysisView(APIView):
 
                 "subject": subject,
             },
+
+
+            "attachments": validated_attachments,
 
 
             "ioc_analysis": {
@@ -734,25 +757,18 @@ class RiskAnalysisView(APIView):
 
 
         # ====================================================
-        # STEP 18: PRINT FINAL RESPONSE
+        # STEP 19: PRINT FINAL RESPONSE
         # ====================================================
-
         print("\n======================================")
         print("RISK ENGINE RESPONSE")
         print("======================================")
-
         print(response_data)
-
         print("======================================\n")
-
-
         # ====================================================
-        # STEP 19: RETURN RESPONSE
+        # STEP 20: RETURN RESPONSE
         # ====================================================
-
         return Response(
-
             response_data,
-
             status=status.HTTP_200_OK
         )
+

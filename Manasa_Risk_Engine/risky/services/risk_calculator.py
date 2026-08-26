@@ -5,13 +5,10 @@ class RiskCalculator:
         "MEDIUM": 40,
         "HIGH": 60,
     }
-
     IOC_WEIGHT = 3
     IOC_MAX_SCORE = 15
-
     MALICIOUS_WEIGHT = 5
     MALICIOUS_MAX_SCORE = 15
-
     SUSPICIOUS_WEIGHT = 3
     SUSPICIOUS_MAX_SCORE = 10
     HARMLESS_REDUCTION = 1

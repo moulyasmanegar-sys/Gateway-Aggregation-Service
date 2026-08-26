@@ -1,6 +1,23 @@
 from rest_framework import serializers
 
 
+# ============================================================
+# ATTACHMENT SERIALIZER
+# ============================================================
+
+class AttachmentSerializer(serializers.Serializer):
+
+    filename = serializers.CharField()
+
+    filepath = serializers.CharField()
+
+    content_type = serializers.CharField()
+
+
+# ============================================================
+# EMAIL DATA SERIALIZER
+# ============================================================
+
 class EmailDataSerializer(serializers.Serializer):
 
     id = serializers.IntegerField(
@@ -25,12 +42,16 @@ class EmailDataSerializer(serializers.Serializer):
         required=False
     )
 
-    attachment = serializers.CharField(
+    attachments = AttachmentSerializer(
+        many=True,
         required=False,
-        allow_blank=True,
-        default="",
+        default=list,
     )
 
+
+# ============================================================
+# RISK INPUT SERIALIZER
+# ============================================================
 
 class RiskInputSerializer(serializers.Serializer):
 
@@ -43,6 +64,12 @@ class RiskInputSerializer(serializers.Serializer):
 
     urls = serializers.ListField(
         child=serializers.URLField(),
+        required=False,
+        default=list,
+    )
+
+    attachments = AttachmentSerializer(
+        many=True,
         required=False,
         default=list,
     )
