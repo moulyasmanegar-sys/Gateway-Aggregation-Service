@@ -30,7 +30,7 @@ def receive_results(request):
     # -----------------------------------------
 
     try:
-        data = json.loads(request.body)
+        received_data = json.loads(request.body)
 
     except json.JSONDecodeError:
         return JsonResponse(
@@ -47,15 +47,14 @@ def receive_results(request):
 
     required_fields = [
         "email_id",
-        "risk_score",
-        "classification",
+        "risk_analysis",
         "threat_intelligence"
     ]
 
     missing_fields = [
         field
         for field in required_fields
-        if field not in data
+        if field not in received_data
     ]
 
     if missing_fields:
@@ -69,10 +68,53 @@ def receive_results(request):
         )
 
     # -----------------------------------------
+    # Validate risk analysis
+    # -----------------------------------------
+
+    risk_analysis = received_data["risk_analysis"]
+
+    if not isinstance(risk_analysis, dict):
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "risk_analysis must be an object"
+            },
+            status=400
+        )
+
+    required_risk_fields = [
+        "risk_score",
+        "classification"
+    ]
+
+    missing_risk_fields = [
+        field
+        for field in required_risk_fields
+        if field not in risk_analysis
+    ]
+
+    if missing_risk_fields:
+        return JsonResponse(
+            {
+                "status": "error",
+                "message": "Missing risk analysis fields",
+                "missing_fields": missing_risk_fields
+            },
+            status=400
+        )
+
+    # -----------------------------------------
+    # Extract risk analysis values
+    # -----------------------------------------
+
+    risk_score = risk_analysis["risk_score"]
+    classification = risk_analysis["classification"]
+
+    # -----------------------------------------
     # Validate threat intelligence
     # -----------------------------------------
 
-    threat_intelligence = data["threat_intelligence"]
+    threat_intelligence = received_data["threat_intelligence"]
 
     if not isinstance(threat_intelligence, dict):
         return JsonResponse(
@@ -124,10 +166,32 @@ def receive_results(request):
         )
 
     # -----------------------------------------
-    # Print received data
+    # Create only required JSON data
     # -----------------------------------------
 
-    print("Received validated data:")
+    data = {
+        "email_id": received_data["email_id"],
+
+        "risk_analysis": {
+            "risk_score": risk_analysis["risk_score"],
+            "classification": risk_analysis["classification"]
+        },
+
+        "threat_intelligence": {
+            "total_urls": threat_intelligence["total_urls"],
+            "malicious_count": threat_intelligence["malicious_count"],
+            "suspicious_count": threat_intelligence["suspicious_count"],
+            "harmless_count": threat_intelligence["harmless_count"],
+            "undetected_count": threat_intelligence["undetected_count"],
+            "url_results": url_results
+        }
+    }
+
+    # -----------------------------------------
+    # Print only required data
+    # -----------------------------------------
+
+    print("Received required data:")
     print(json.dumps(data, indent=4))
 
     # -----------------------------------------
@@ -157,8 +221,8 @@ def receive_results(request):
                     """,
                     [
                         data["email_id"],
-                        data["risk_score"],
-                        data["classification"],
+                        risk_score,
+                        classification,
                         threat_intelligence["total_urls"],
                         threat_intelligence["malicious_count"],
                         threat_intelligence["suspicious_count"],
@@ -170,7 +234,9 @@ def receive_results(request):
                 # Get newly created report ID
                 report_id = cursor.lastrowid
 
-                print(f"Report saved successfully. Report ID: {report_id}")
+                print(
+                    f"Report saved successfully. Report ID: {report_id}"
+                )
 
                 # Save each URL result
                 for result in url_results:
@@ -216,7 +282,7 @@ def receive_results(request):
     # Generate HTML email report
     # -----------------------------------------
 
-    subject = f"Security Risk Analysis - {data['classification']}"
+    subject = f"Security Risk Analysis - {classification}"
 
     html_message = format_risk_email(data)
 
@@ -230,7 +296,7 @@ def receive_results(request):
             subject=subject,
             body="Security Risk Analysis Report.",
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=["moulya.s@optimas.com"],
+            to=["goweris19@gmail.com"],
         )
 
         email.attach_alternative(
