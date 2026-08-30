@@ -702,12 +702,19 @@ login
 
 # Attachments
 
-The report displays email attachments.
+The report displays attachments associated with the email.
 
-| Filename    | Content Type    |
-| ----------- | --------------- |
-| Example.pdf | application/pdf |
+| Filename | Content Type |
+|---|---|
+| document.pdf | application/pdf |
+| image.png / image.jpg | image/png / image/jpeg |
+| spreadsheet.xlsx | application/vnd.openxmlformats-officedocument.spreadsheetml.sheet |
+| document.docx | application/vnd.openxmlformats-officedocument.wordprocessingml.document |
 
+If there are no attachments, the report displays:
+
+```text
+No attachments found.
 If there are no attachments, the report displays:
 
 ```text
@@ -755,7 +762,8 @@ Final Risk Score: 54/100
 
 ---
 
-# Final Result Report
+<img width="188" height="362" alt="result_report" src="https://github.com/user-attachments/assets/ea18ee88-d723-4c6e-92cf-3e950f40465d" />
+
 
 ## Put Final Result Report Image Here
 
