@@ -762,7 +762,7 @@ Final Risk Score: 54/100
 
 ---
 
-<img width="188" height="362" alt="result_report" src="https://github.com/user-attachments/assets/ea18ee88-d723-4c6e-92cf-3e950f40465d" />
+<img width="1023" height="1537" alt="SECURITY_REPORT_RESULT" src="https://github.com/user-attachments/assets/6191a34e-b85d-4a7e-b745-abfa6e63f6a1" />
 
 
 ## Put Final Result Report Image Here
