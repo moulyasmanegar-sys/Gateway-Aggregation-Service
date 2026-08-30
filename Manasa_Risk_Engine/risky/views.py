@@ -1,5 +1,4 @@
 import re
-
 import requests
 
 from rest_framework import status
@@ -17,9 +16,7 @@ from .services.ioc_extractor import IOCExtractor
 # THAKSHI RESULTS API
 # ============================================================
 
-RESULTS_API_URL = (
-    "https://vixen-deepen-gown.ngrok-free.dev/api/results/"
-)
+RESULTS_API_URL = "http://127.0.0.1:8002/api/results/"
 
 
 # ============================================================
@@ -27,14 +24,10 @@ RESULTS_API_URL = (
 # ============================================================
 
 def clean_email(value):
-
     if not value:
         return ""
 
     value = str(value).strip()
-
-    # Example:
-    # [moulya@gmail.com](mailto:moulya@gmail.com)
 
     match = re.search(
         r"mailto:([^)]+)",
@@ -43,8 +36,6 @@ def clean_email(value):
 
     if match:
         return match.group(1).strip()
-
-    # Normal email
 
     match = re.search(
         r"[\w\.-]+@[\w\.-]+\.\w+",
@@ -62,14 +53,10 @@ def clean_email(value):
 # ============================================================
 
 def clean_url(value):
-
     if not value:
         return ""
 
     value = str(value).strip()
-
-    # Example:
-    # [https://example.com](https://example.com)
 
     match = re.search(
         r"\]\((https?://[^)]+)\)",
@@ -79,10 +66,8 @@ def clean_url(value):
     if match:
         return match.group(1).strip()
 
-    # Normal URL
-
     match = re.search(
-        r"https?://[^\s\])]+",
+        r"https?://[^\s\]\)]+",
         value
     )
 
@@ -90,6 +75,23 @@ def clean_url(value):
         return match.group(0).strip()
 
     return value
+
+
+# ============================================================
+# GET IOC CLASSIFICATION
+# ============================================================
+
+def get_ioc_classification(result):
+    malicious = result.get("malicious", 0)
+    suspicious = result.get("suspicious", 0)
+
+    if malicious > 0:
+        return "Malicious"
+
+    if suspicious > 0:
+        return "Suspicious"
+
+    return "Harmless"
 
 
 # ============================================================
@@ -116,55 +118,22 @@ class RiskAnalysisView(APIView):
         # STEP 2: HANDLE NESTED EMAIL DATA
         # ====================================================
 
-        email_data = incoming_data.get(
-            "data",
-            {}
-        )
+        email_data = incoming_data.get("data", {})
 
         # ====================================================
         # FALLBACK TO TOP-LEVEL DATA
         # ====================================================
 
         if not email_data:
-
             email_data = {
-                "id": incoming_data.get(
-                    "email_id"
-                ),
-
-                "sender": incoming_data.get(
-                    "sender",
-                    ""
-                ),
-
-                "receiver": incoming_data.get(
-                    "receiver",
-                    ""
-                ),
-
-                "subject": incoming_data.get(
-                    "subject",
-                    ""
-                ),
-
-                "body": incoming_data.get(
-                    "body",
-                    ""
-                ),
-
-                "urls": incoming_data.get(
-                    "urls",
-                    []
-                ),
-
-                "timestamp": incoming_data.get(
-                    "timestamp"
-                ),
-
-                "attachments": incoming_data.get(
-                    "attachments",
-                    []
-                ),
+                "id": incoming_data.get("email_id"),
+                "sender": incoming_data.get("sender", ""),
+                "receiver": incoming_data.get("receiver", ""),
+                "subject": incoming_data.get("subject", ""),
+                "body": incoming_data.get("body", ""),
+                "urls": incoming_data.get("urls", []),
+                "timestamp": incoming_data.get("timestamp"),
+                "attachments": incoming_data.get("attachments", []),
             }
 
         # ====================================================
@@ -183,14 +152,9 @@ class RiskAnalysisView(APIView):
 
         attachments = []
 
-        for attachment in (
-            top_level_attachments + nested_attachments
-        ):
-
+        for attachment in top_level_attachments + nested_attachments:
             if attachment not in attachments:
                 attachments.append(attachment)
-
-        # Add normalized attachments to email data
 
         email_data["attachments"] = attachments
 
@@ -199,23 +163,10 @@ class RiskAnalysisView(APIView):
         # ====================================================
 
         normalized_data = {
-
-            "message": incoming_data.get(
-                "message",
-                ""
-            ),
-
-            "email_id": incoming_data.get(
-                "email_id"
-            ),
-
-            "urls": incoming_data.get(
-                "urls",
-                []
-            ),
-
+            "message": incoming_data.get("message", ""),
+            "email_id": incoming_data.get("email_id"),
+            "urls": incoming_data.get("urls", []),
             "attachments": attachments,
-
             "data": email_data,
         }
 
@@ -254,17 +205,11 @@ class RiskAnalysisView(APIView):
         )
 
         sender = clean_email(
-            email_data.get(
-                "sender",
-                ""
-            )
+            email_data.get("sender", "")
         )
 
         receiver = clean_email(
-            email_data.get(
-                "receiver",
-                ""
-            )
+            email_data.get("receiver", "")
         )
 
         subject = email_data.get(
@@ -282,7 +227,7 @@ class RiskAnalysisView(APIView):
             []
         )
 
-        print("EMAIL DETAILS:")
+        print("\nEMAIL DETAILS:")
         print("Sender:", sender)
         print("Receiver:", receiver)
         print("Subject:", subject)
@@ -290,56 +235,27 @@ class RiskAnalysisView(APIView):
         print("Attachments:", validated_attachments)
 
         # ====================================================
-        # STEP 8: CLEAN TOP-LEVEL URLS
-        # ====================================================
-
-        incoming_urls = validated_data.get(
-            "urls",
-            []
-        )
-
-        cleaned_incoming_urls = []
-
-        for url in incoming_urls:
-
-            cleaned = clean_url(url)
-
-            if cleaned:
-                cleaned_incoming_urls.append(
-                    cleaned
-                )
-
-        # ====================================================
-        # STEP 9: CLEAN NESTED URLS
-        # ====================================================
-
-        nested_urls = email_data.get(
-            "urls",
-            []
-        )
-
-        cleaned_nested_urls = []
-
-        for url in nested_urls:
-
-            cleaned = clean_url(url)
-
-            if cleaned:
-                cleaned_nested_urls.append(
-                    cleaned
-                )
-
-        # ====================================================
-        # STEP 10: EXTRACT IOCs
+        # STEP 8: EXTRACT IOCs
         # ====================================================
 
         ioc_data = IOCExtractor.extract(
             subject=subject,
             body=body,
+            attachments=validated_attachments
+        )
+
+        iocs = ioc_data.get(
+            "iocs",
+            []
         )
 
         extracted_urls = ioc_data.get(
             "urls",
+            []
+        )
+
+        ips = ioc_data.get(
+            "ips",
             []
         )
 
@@ -348,111 +264,148 @@ class RiskAnalysisView(APIView):
             []
         )
 
+        sha256_hashes = ioc_data.get(
+            "sha256_hashes",
+            []
+        )
+
+        md5_hashes = ioc_data.get(
+            "md5_hashes",
+            []
+        )
+
         suspicious_keywords = ioc_data.get(
             "suspicious_keywords",
             []
         )
 
-        ioc_count = ioc_data.get(
-            "ioc_count",
-            0
+        # IOCExtractor returns attachment FILE IOCs
+        # using the "attachments" key
+
+        attachment_iocs = ioc_data.get(
+            "attachments",
+            []
         )
 
         # ====================================================
-        # STEP 11: CLEAN EXTRACTED URLS
+        # STEP 9: ADD INCOMING URLS
         # ====================================================
 
-        cleaned_extracted_urls = []
+        incoming_urls = validated_data.get(
+            "urls",
+            []
+        )
+
+        nested_urls = email_data.get(
+            "urls",
+            []
+        )
+
+        all_urls = []
 
         for url in extracted_urls:
-
             cleaned = clean_url(url)
 
-            if cleaned:
-                cleaned_extracted_urls.append(
-                    cleaned
-                )
+            if cleaned and cleaned not in all_urls:
+                all_urls.append(cleaned)
+
+        for url in incoming_urls:
+            cleaned = clean_url(url)
+
+            if cleaned and cleaned not in all_urls:
+                all_urls.append(cleaned)
+
+        for url in nested_urls:
+            cleaned = clean_url(url)
+
+            if cleaned and cleaned not in all_urls:
+                all_urls.append(cleaned)
 
         # ====================================================
-        # STEP 12: COMBINE ALL URL SOURCES
+        # STEP 10: BUILD FINAL IOC LIST
         # ====================================================
 
-        urls = []
+        final_iocs = []
 
-        # URLs extracted from email body
+        for ioc in iocs:
+            if ioc not in final_iocs:
+                final_iocs.append(ioc)
 
-        for url in cleaned_extracted_urls:
+        for url in all_urls:
+            url_ioc = {
+                "type": "URL",
+                "value": url
+            }
 
-            if url not in urls:
-                urls.append(url)
+            if url_ioc not in final_iocs:
+                final_iocs.append(url_ioc)
 
-        # URLs from top-level JSON
+        ioc_count = len(final_iocs)
 
-        for url in cleaned_incoming_urls:
-
-            if url not in urls:
-                urls.append(url)
-
-        # URLs from data.urls
-
-        for url in cleaned_nested_urls:
-
-            if url not in urls:
-                urls.append(url)
-
-        print("FINAL URLS FOR THREAT INTELLIGENCE:")
-        print(urls)
+        print("\n======================================")
+        print("FINAL IOC ANALYSIS")
+        print("======================================")
+        print("Total IOCs:", ioc_count)
+        print("IOCs:", final_iocs)
+        print("Attachment IOCs:", attachment_iocs)
+        print("======================================\n")
 
         # ====================================================
-        # STEP 13: VIRUSTOTAL ANALYSIS
+        # STEP 11: ANALYZE ALL IOCs
         # ====================================================
 
-        url_results = []
+        ioc_results = []
 
         total_malicious = 0
         total_suspicious = 0
         total_harmless = 0
         total_undetected = 0
 
-        if urls:
+        if final_iocs:
 
             try:
+                virus_total_service = VirusTotalService()
 
-                virus_total_service = (
-                    VirusTotalService()
-                )
+                for ioc in final_iocs:
 
-                for url in urls:
+                    ioc_type = ioc.get("type")
+                    ioc_value = ioc.get("value")
+
+                    # FILE IOC needs filepath
+                    filepath = ioc.get("filepath")
 
                     print(
-                        "Analyzing URL with VirusTotal:",
-                        url
+                        f"\nAnalyzing {ioc_type}: "
+                        f"{ioc_value}"
                     )
 
-                    result = (
-                        virus_total_service.analyze_url(
-                            url
-                        )
+                    result = virus_total_service.analyze_ioc(
+                        ioc_type=ioc_type,
+                        ioc_value=ioc_value,
+                        filepath=filepath,
                     )
 
-                    url_results.append(
+                    ioc_classification = get_ioc_classification(
                         result
                     )
 
-                    total_malicious += result.get(
-                        "malicious",
-                        0
+                    result["classification"] = (
+                        ioc_classification
                     )
 
-                    total_suspicious += result.get(
-                        "suspicious",
-                        0
-                    )
+                    result["type"] = ioc_type
+                    result["value"] = ioc_value
 
-                    total_harmless += result.get(
-                        "harmless",
-                        0
-                    )
+                    ioc_results.append(result)
+
+                    if ioc_classification == "Malicious":
+                        total_malicious += 1
+
+                    elif ioc_classification == "Suspicious":
+                        total_suspicious += 1
+
+                    else:
+                        total_harmless += 1
 
                     total_undetected += result.get(
                         "undetected",
@@ -469,103 +422,89 @@ class RiskAnalysisView(APIView):
                 return Response(
                     {
                         "success": False,
-
                         "message": (
                             "Threat intelligence "
                             "analysis failed."
                         ),
-
                         "email_id": email_id,
-
                         "error": str(error),
-
-                        "urls": urls,
+                        "iocs": final_iocs,
                     },
-
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
 
         # ====================================================
-        # STEP 14: RISK CALCULATION
+        # STEP 12: RISK CALCULATION
         # ====================================================
 
         calculation = RiskCalculator.calculate(
-
-            ai_risk="LOW",
-
             ioc_count=ioc_count,
-
             malicious_count=total_malicious,
-
             suspicious_count=total_suspicious,
-
             harmless_count=total_harmless,
-
-            total_urls=len(urls),
+            suspicious_keyword_count=len(
+                suspicious_keywords
+            ),
         )
 
-        risk_score = calculation[
-            "risk_score"
-        ]
-
-        # ====================================================
-        # STEP 15: RISK CLASSIFICATION
-        # ====================================================
-
-        classification = (
-            RiskClassifier.classify(
-                risk_score
-            )
+        risk_score = calculation.get(
+            "risk_score",
+            0
         )
 
         # ====================================================
-        # STEP 16: PREPARE RESULT FOR THAKSHI
+        # STEP 13: OVERALL RISK CLASSIFICATION
         # ====================================================
-        #
-        # IMPORTANT:
-        #
-        # Thakshi expects:
-        #
-        # "risk_analysis": {...}
-        #
-        # instead of:
-        #
-        # "risk_score": ...
-        # "classification": ...
-        #
+
+        overall_classification = RiskClassifier.classify(
+            risk_score
+        )
+
+        print("\nRISK RESULT:")
+        print("Risk Score:", risk_score)
+        print(
+            "Classification:",
+            overall_classification
+        )
+
+        # ====================================================
+        # STEP 14: PREPARE RESULT FOR THAKSHI
         # ====================================================
 
         thakshi_payload = {
-
             "email_id": email_id,
 
             "risk_analysis": {
-
                 "risk_score": risk_score,
-
-                "classification": classification,
-
-                "score_breakdown": (
-                    calculation.get(
-                        "score_breakdown",
-                        {}
-                    )
+                "classification": overall_classification,
+                "risk_level": calculation.get(
+                    "risk_level",
+                    "LOW"
+                ),
+                "score_breakdown": calculation.get(
+                    "score_breakdown",
+                    {}
                 ),
             },
 
             "threat_intelligence": {
-
-                "total_urls": len(urls),
-
+                "total_iocs": ioc_count,
                 "malicious_count": total_malicious,
-
                 "suspicious_count": total_suspicious,
-
                 "harmless_count": total_harmless,
-
                 "undetected_count": total_undetected,
+                "ioc_results": ioc_results,
+            },
 
-                "url_results": url_results,
+            "ioc_analysis": {
+                "total_iocs": ioc_count,
+                "iocs": final_iocs,
+                "ips": ips,
+                "domains": domains,
+                "sha256_hashes": sha256_hashes,
+                "md5_hashes": md5_hashes,
+                "attachment_iocs": attachment_iocs,
+                "suspicious_keywords": suspicious_keywords,
             },
 
             "attachments": validated_attachments,
@@ -578,25 +517,17 @@ class RiskAnalysisView(APIView):
         print("==========================\n")
 
         # ====================================================
-        # STEP 17: SEND RESULT TO THAKSHI
+        # STEP 15: SEND RESULT TO THAKSHI
         # ====================================================
 
-        thakshi_response = None
-
         try:
-
             thakshi_response = requests.post(
-
                 RESULTS_API_URL,
-
                 json=thakshi_payload,
-
                 headers={
                     "Content-Type": "application/json",
-
                     "ngrok-skip-browser-warning": "1",
                 },
-
                 timeout=30,
             )
 
@@ -610,15 +541,8 @@ class RiskAnalysisView(APIView):
                 thakshi_response.text
             )
 
-            # =================================================
-            # HANDLE THAKSHI ERROR
-            # =================================================
-
             if not thakshi_response.ok:
-
-                print("\n======================================")
-                print("THAKSHI API RETURNED ERROR")
-                print("======================================")
+                print("\nTHAKSHI API RETURNED ERROR")
 
                 print(
                     "STATUS:",
@@ -630,91 +554,79 @@ class RiskAnalysisView(APIView):
                     thakshi_response.text
                 )
 
-                print("======================================\n")
-
         except requests.RequestException as error:
 
-            print("\n======================================")
-            print("FAILED TO SEND RESULT TO THAKSHI")
-            print("======================================")
+            print(
+                "\nFAILED TO SEND RESULT TO THAKSHI"
+            )
 
             print(
                 "ERROR:",
                 str(error)
             )
 
-            print("======================================\n")
-
         # ====================================================
-        # STEP 18: BUILD FINAL RESPONSE
+        # STEP 16: BUILD FINAL RESPONSE
         # ====================================================
 
         response_data = {
-
             "success": True,
 
             "message": (
-                "Risk analysis completed successfully."
+                "IOC risk analysis completed successfully."
             ),
 
             "email_id": email_id,
 
             "email_details": {
-
                 "sender": sender,
-
                 "receiver": receiver,
-
                 "subject": subject,
             },
 
             "attachments": validated_attachments,
 
             "ioc_analysis": {
-
-                "ioc_count": ioc_count,
-
-                "extracted_urls": urls,
-
+                "total_iocs": ioc_count,
+                "iocs": final_iocs,
+                "urls": all_urls,
+                "ips": ips,
                 "domains": domains,
-
-                "suspicious_keywords": (
-                    suspicious_keywords
-                ),
-            },
-
-            "risk_analysis": {
-
-                "risk_score": risk_score,
-
-                "classification": classification,
-
-                "score_breakdown": (
-                    calculation.get(
-                        "score_breakdown",
-                        {}
-                    )
-                ),
+                "sha256_hashes": sha256_hashes,
+                "md5_hashes": md5_hashes,
+                "attachment_iocs": attachment_iocs,
+                "suspicious_keywords": suspicious_keywords,
             },
 
             "threat_intelligence": {
-
-                "total_urls": len(urls),
-
+                "total_iocs": ioc_count,
                 "malicious_count": total_malicious,
-
                 "suspicious_count": total_suspicious,
-
                 "harmless_count": total_harmless,
-
                 "undetected_count": total_undetected,
+                "ioc_results": ioc_results,
+            },
 
-                "url_results": url_results,
+            "risk_analysis": {
+                "risk_score": risk_score,
+                "classification": overall_classification,
+                "risk_level": calculation.get(
+                    "risk_level",
+                    "LOW"
+                ),
+                "score_breakdown": calculation.get(
+                    "score_breakdown",
+                    {}
+                ),
+                "ioc_statistics": calculation.get(
+                    "ioc_statistics",
+                    {}
+                ),
             },
         }
 
         # ====================================================
-        # STEP 19: PRINT FINAL RESPONSE
+        # STEP 17: PRINT FINAL RESPONSE
         # ====================================================
 
         print("\n======================================")
@@ -724,7 +636,7 @@ class RiskAnalysisView(APIView):
         print("======================================\n")
 
         # ====================================================
-        # STEP 20: RETURN RESPONSE
+        # STEP 18: RETURN RESPONSE
         # ====================================================
 
         return Response(

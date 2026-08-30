@@ -17,6 +17,7 @@ def receive_results(request):
     # -----------------------------------------
 
     if request.method != "POST":
+
         return JsonResponse(
             {
                 "status": "error",
@@ -30,9 +31,11 @@ def receive_results(request):
     # -----------------------------------------
 
     try:
-        received_data = json.loads(request.body)
+
+        data = json.loads(request.body)
 
     except json.JSONDecodeError:
+
         return JsonResponse(
             {
                 "status": "error",
@@ -42,7 +45,7 @@ def receive_results(request):
         )
 
     # -----------------------------------------
-    # Validate required fields
+    # Validate required top-level fields
     # -----------------------------------------
 
     required_fields = [
@@ -54,10 +57,11 @@ def receive_results(request):
     missing_fields = [
         field
         for field in required_fields
-        if field not in received_data
+        if field not in data
     ]
 
     if missing_fields:
+
         return JsonResponse(
             {
                 "status": "error",
@@ -68,12 +72,13 @@ def receive_results(request):
         )
 
     # -----------------------------------------
-    # Validate risk analysis
+    # Extract risk analysis
     # -----------------------------------------
 
-    risk_analysis = received_data["risk_analysis"]
+    risk_analysis = data["risk_analysis"]
 
     if not isinstance(risk_analysis, dict):
+
         return JsonResponse(
             {
                 "status": "error",
@@ -94,6 +99,7 @@ def receive_results(request):
     ]
 
     if missing_risk_fields:
+
         return JsonResponse(
             {
                 "status": "error",
@@ -103,20 +109,17 @@ def receive_results(request):
             status=400
         )
 
-    # -----------------------------------------
-    # Extract risk analysis values
-    # -----------------------------------------
-
     risk_score = risk_analysis["risk_score"]
     classification = risk_analysis["classification"]
 
     # -----------------------------------------
-    # Validate threat intelligence
+    # Extract threat intelligence
     # -----------------------------------------
 
-    threat_intelligence = received_data["threat_intelligence"]
+    threat_intelligence = data["threat_intelligence"]
 
     if not isinstance(threat_intelligence, dict):
+
         return JsonResponse(
             {
                 "status": "error",
@@ -125,13 +128,17 @@ def receive_results(request):
             status=400
         )
 
+    # -----------------------------------------
+    # Validate IOC fields
+    # -----------------------------------------
+
     required_threat_fields = [
-        "total_urls",
+        "total_iocs",
         "malicious_count",
         "suspicious_count",
         "harmless_count",
         "undetected_count",
-        "url_results"
+        "ioc_results"
     ]
 
     missing_threat_fields = [
@@ -141,6 +148,7 @@ def receive_results(request):
     ]
 
     if missing_threat_fields:
+
         return JsonResponse(
             {
                 "status": "error",
@@ -151,48 +159,37 @@ def receive_results(request):
         )
 
     # -----------------------------------------
-    # Validate URL results
+    # Validate IOC results
     # -----------------------------------------
 
-    url_results = threat_intelligence["url_results"]
+    ioc_results = threat_intelligence["ioc_results"]
 
-    if not isinstance(url_results, list):
+    if not isinstance(ioc_results, list):
+
         return JsonResponse(
             {
                 "status": "error",
-                "message": "url_results must be a list"
+                "message": "ioc_results must be a list"
             },
             status=400
         )
 
     # -----------------------------------------
-    # Create only required JSON data
+    # Print received data
     # -----------------------------------------
 
-    data = {
-        "email_id": received_data["email_id"],
+    print("\n======================================")
+    print("RECEIVED RISK ENGINE RESULT")
+    print("======================================")
 
-        "risk_analysis": {
-            "risk_score": risk_analysis["risk_score"],
-            "classification": risk_analysis["classification"]
-        },
+    print(
+        json.dumps(
+            data,
+            indent=4
+        )
+    )
 
-        "threat_intelligence": {
-            "total_urls": threat_intelligence["total_urls"],
-            "malicious_count": threat_intelligence["malicious_count"],
-            "suspicious_count": threat_intelligence["suspicious_count"],
-            "harmless_count": threat_intelligence["harmless_count"],
-            "undetected_count": threat_intelligence["undetected_count"],
-            "url_results": url_results
-        }
-    }
-
-    # -----------------------------------------
-    # Print only required data
-    # -----------------------------------------
-
-    print("Received required data:")
-    print(json.dumps(data, indent=4))
+    print("======================================\n")
 
     # -----------------------------------------
     # Save data to MySQL
@@ -204,14 +201,17 @@ def receive_results(request):
 
             with connection.cursor() as cursor:
 
+                # ---------------------------------
                 # Save main report
+                # ---------------------------------
+
                 cursor.execute(
                     """
                     INSERT INTO reports (
                         email_id,
                         risk_score,
                         classification,
-                        total_urls,
+                        total_iocs,
                         malicious_count,
                         suspicious_count,
                         harmless_count,
@@ -223,7 +223,7 @@ def receive_results(request):
                         data["email_id"],
                         risk_score,
                         classification,
-                        threat_intelligence["total_urls"],
+                        threat_intelligence["total_iocs"],
                         threat_intelligence["malicious_count"],
                         threat_intelligence["suspicious_count"],
                         threat_intelligence["harmless_count"],
@@ -231,49 +231,71 @@ def receive_results(request):
                     ]
                 )
 
+                # ---------------------------------
                 # Get newly created report ID
+                # ---------------------------------
+
                 report_id = cursor.lastrowid
 
                 print(
-                    f"Report saved successfully. Report ID: {report_id}"
+                    f"Report saved successfully. "
+                    f"Report ID: {report_id}"
                 )
 
-                # Save each URL result
-                for result in url_results:
+                # ---------------------------------
+                # Save each IOC result
+                # ---------------------------------
+
+                for result in ioc_results:
 
                     cursor.execute(
                         """
-                        INSERT INTO url_results (
+                        INSERT INTO ioc_results (
                             report_id,
-                            url,
+                            ioc_type,
+                            ioc_value,
                             malicious,
                             suspicious,
                             harmless,
-                            undetected
+                            undetected,
+                            classification,
+                            tlp
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s)
+                        VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s
+                        )
                         """,
                         [
                             report_id,
-                            result.get("url", ""),
+                            result.get("type", ""),
+                            result.get("value", ""),
                             result.get("malicious", 0),
                             result.get("suspicious", 0),
                             result.get("harmless", 0),
-                            result.get("undetected", 0)
+                            result.get("undetected", 0),
+                            result.get(
+                                "classification",
+                                ""
+                            ),
+                            result.get("tlp", "")
                         ]
                     )
 
-        print("URL results saved successfully.")
+        print("IOC results saved successfully.")
 
-    except Exception as e:
+    except Exception as error:
 
-        print("Database error:", str(e))
+        print(
+            "Database error:",
+            str(error)
+        )
 
         return JsonResponse(
             {
                 "status": "error",
                 "message": "Failed to save report to database",
-                "error": str(e)
+                "error": str(error)
             },
             status=500
         )
@@ -282,12 +304,15 @@ def receive_results(request):
     # Generate HTML email report
     # -----------------------------------------
 
-    subject = f"Security Risk Analysis - {classification}"
+    subject = (
+        f"Security Risk Analysis - "
+        f"{classification}"
+    )
 
     html_message = format_risk_email(data)
 
     # -----------------------------------------
-    # Send email
+    # Send email report
     # -----------------------------------------
 
     try:
@@ -296,7 +321,9 @@ def receive_results(request):
             subject=subject,
             body="Security Risk Analysis Report.",
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=["goweris19@gmail.com"],
+            to=[
+                "priyapal3157@gmail.com"
+            ],
         )
 
         email.attach_alternative(
@@ -304,34 +331,46 @@ def receive_results(request):
             "text/html"
         )
 
-        email.send(fail_silently=False)
+        email.send(
+            fail_silently=False
+        )
 
-        print("Email report sent successfully.")
+        print(
+            "Email report sent successfully."
+        )
 
-    except Exception as e:
+    except Exception as error:
 
-        print("Email error:", str(e))
+        print(
+            "Email error:",
+            str(error)
+        )
 
         return JsonResponse(
             {
                 "status": "error",
-                "message": "Report saved to database, but email could not be sent",
+                "message": (
+                    "Report saved to database, "
+                    "but email could not be sent"
+                ),
                 "report_id": report_id,
-                "error": str(e)
+                "error": str(error)
             },
             status=500
         )
 
     # -----------------------------------------
-    # API response
+    # Final API response
     # -----------------------------------------
 
     return JsonResponse(
         {
             "status": "success",
-            "message": "Report saved and email sent successfully",
-            "report_id": report_id,
-            "received_data": data
+            "message": (
+                "Report saved and email "
+                "sent successfully"
+            ),
+            "report_id": report_id
         },
         status=200
     )
