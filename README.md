@@ -41,36 +41,182 @@ Report Generator
       ↓
 Final Security Report
 ```
+```
+High level diagram
+             ┌──────────────────┐
+             │   Gmail Inbox    │
+             │ Incoming Emails  │
+             └────────┬─────────┘
+                      │ IMAP
+                      ▼
+             ┌──────────────────┐
+             │   Email Reader   │
+             │                  │
+             │ Read Email       │
+             │ Extract Data     │
+             │ Extract URLs     │
+             │ Attachments      │
+             └────────┬─────────┘
+                      │ Email JSON
+                      ▼
+             ┌──────────────────┐
+             │  Django Gateway  │
+             │                  │
+             │ Validate Data    │
+             │ Prepare Payload  │
+             └────────┬─────────┘
+                      │ REST API
+                      ▼
+             ┌──────────────────┐
+             │    Risk Engine   │
+             │                  │
+             │ IOC Extraction   │
+             │ Threat Intel     │
+             │ Risk Calculation │
+             │ Classification   │
+             └────────┬─────────┘
+                      │ Risk JSON
+                      ▼
+             ┌──────────────────┐
+             │ Report Generator │
+             │                  │
+             │ Validate Results │
+             │ Generate Report  │
+             └────────┬─────────┘
+                      │
+                ┌─────┴─────┐
+                ▼           ▼
+          ┌──────────┐  ┌───────────┐
+          │  SQLite  │  │   SMTP    │
+          │  Storage │  │  Delivery │
+          └──────────┘  └─────┬─────┘
+                              │
+                              ▼
+                       ┌─────────────┐
+                       │   Recipient │
+                       │ Security    │
+                       │   Report    │
+                       └─────────────┘
 
----
-
-# High-Level Architecture
-
-<img width="709" height="396" alt="HIGHLEVEL_DESIGN" src="https://github.com/user-attachments/assets/234c8634-2364-4856-8df6-abdd8ea4648d" />
-
-----Detailed Flow----
-<img width="758" height="392" alt="HIGHLEVEL_DETAILEDFLOW" src="https://github.com/user-attachments/assets/1683673c-f16c-48d9-a6dd-540a60a6c8bd" />
+```
+# Low-Level Architecture
 
 
-The high-level architecture represents the complete communication flow between the major components of the system.
+The low-level architecture explains the internal processing flow of the system, including the main files, components, processing steps, threat analysis, risk calculation, classification, and final report generation.
 
 ```text
-Gmail Inbox
-      ↓
+┌──────────────────────────────────────────────────────────────┐
+│                      Gmail Inbox                             │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ email_reader.py                                              │
+├──────────────────────────────────────────────────────────────┤
+│ • Connect to Gmail (IMAP)                                    │
+│ • Authenticate                                               │
+│ • Read Latest Emails                                         │
+│ • Parse MIME Message                                         │
+│ • Extract Sender                                             │
+│ • Extract Receiver                                           │
+│ • Extract Subject                                            │
+│ • Extract Body                                               │
+│ • Extract URLs                                               │
+│ • Download Attachments                                       │
+│ • Store media/attachments                                    │
+│ • Create JSON Payload                                        │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               │ HTTP POST
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Django Gateway                                               │
+├──────────────────────────────────────────────────────────────┤
+│ EmailAPIView                                                 │
+│                                                              │
+│ • Receive JSON                                               │
+│ • Validate Serializer                                        │
+│ • Extract URLs                                               │
+│ • Save Email Metadata                                        │
+│ • Save Attachment Metadata                                   │
+│ • Generate Attachment URLs                                   │
+│ • Build Response JSON                                        │
+│ • Send Payload to Risk Engine                                │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Manasa Risk Engine                                           │
+├──────────────────────────────────────────────────────────────┤
+│ Receive Email JSON                                           │
+│                                                              │
+│ • Parse Email                                                │
+│ • Extract IOC                                                │
+│ • URL Reputation Check                                       │
+│ • VirusTotal Lookup                                          │
+│ • Domain Analysis                                            │
+│ • Rule Engine                                                │
+│ • LLM Analysis                                               │
+│ • Calculate Risk Score                                       │
+│ • SAFE / SUSPICIOUS / MALICIOUS                              │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Report Generator                                             │
+├──────────────────────────────────────────────────────────────┤
+│ • Read Analysis Result                                       │
+│ • Generate PDF Report                                        │
+│ • Include Email Details                                      │
+│ • Include IOC Analysis                                       │
+│ • Include Threat Intelligence                                │
+│ • Include Risk Score                                         │
+│ • Include Classification                                     │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│ Final Response                                               │
+├──────────────────────────────────────────────────────────────┤
+│ • Email Details                                              │
+│ • Attachment URLs                                            │
+│ • Risk Score                                                 │
+│ • Classification                                             │
+│ • PDF Report URL                                             │
+└──────────────────────────────────────────────────────────────┘
+
+
+
+
+AUTOMATED END-TO-END FLOW
+
+Gmail
+ ↓
 Email Reader
-      ↓
+ ↓
 Django Gateway
-      ↓
-Risk Engine API
-      ↓
-Risk Analysis
-      ↓
+ ↓
+Risk Engine
+ ↓
+IOC Extraction
+ ↓
+Threat Intelligence
+ ↓
+Risk Calculation
+ ↓
+Risk Classification
+ ↓
+Risk Analysis JSON
+ ↓
 Report Generator
-      ↓
-MySQL / SMTP
-      ↓
-Final Security Report
-```
+ ↓
+HTML Security Report
+ ↓
+SQLite / Email Delivery
+ ↓
+SMTP
+ ↓
+Final Recipient
 
 The high-level architecture consists of the following major components:
 
